@@ -58,6 +58,22 @@ Target: Linux x86-64 (WSL2 also fine), or macOS for the desktop preview.
    release you installed; this is the step most likely to need adjustment.
 4. **Sanity check**: `npm run preview` must work before any PS4 build — it compiles the
    same shared sources the PS4 target uses.
+5. **Checks that need no toolchain**: before the first compile, plain Node runs the
+   application's tests and the engine's runtime scripts:
+   ```sh
+   node --test app/i18n/locales.test.mjs app/game/sources.test.mjs app/state/*.test.mjs
+   cd ps5-react && npm install
+   python3 -c "import sys; sys.path.insert(0, 'tools');
+     from common import dependency; print(dependency('embeddedReact'))"
+   PS5_REACT_ER=$PWD/.deps/embeddedReact \
+     node --test tools/tailwind/*.test.mjs runtime/js/motion/*.test.mjs \
+          runtime/js/focus/*.test.mjs runtime/js/*.test.mjs
+   ```
+   The embedded-react checkout stays in `ps5-react/.deps/`; its QuickJS bridge needs
+   `npm ci` once inside `bridges/quickjs/js` (the tailwind plugin test resolves Babel
+   there). The remaining `npm test` suites (resources, archives, network, images, text,
+   video, passthrough, browser capture) build the desktop host first, so they wait for
+   clang and the libraries of step 1.
 
 ## Building
 
