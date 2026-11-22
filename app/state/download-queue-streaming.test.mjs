@@ -272,11 +272,15 @@ test('after a restart the package is served again on its own token and port, wit
   const fixture = harness({saved: servedJob(proxy), delivered: () => sent});
   assert.deepEqual(fixture.proxied, [{url: 'https://cdn.example/file.pkg', total: 4e9, file: 'game.pkg', token: 'b'.repeat(64), port: 41234}]);
   const progress = await new Promise(resolve => {
+    // The serving watch ticks on an unref'd interval, so nothing here would keep Node's event loop
+    // alive: hold it until the progress comes or settle the wait instead of dying mid-suite.
+    const fallback = setTimeout(() => resolve(null), 9000);
     const off = fixture.queue.subscribe(jobs => {
       const job = jobs.find(item => item.id === fixture.id);
-      if (job?.message === 'downloads.proxyProgress') { off?.(); resolve(job); }
+      if (job?.message === 'downloads.proxyProgress') { clearTimeout(fallback); off?.(); resolve(job); }
     });
   });
+  assert.ok(progress, 'the restarted queue reports proxy progress');
   assert.equal(progress.state, 'installed');
   sent = 4e9;
   for (const until = Date.now() + 8000; Date.now() < until;) {
