@@ -165,3 +165,11 @@ holds the *expected* failure modes and their diagnostics:
 
 License: [GPL-3.0-or-later](LICENSE) (the framework under `ps5-react/` carries its own
 license and attribution files).
+
+## Star History
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Stintik-123/Overdrive-PS4&type=Date&theme=dark" />
+  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Stintik-123/Overdrive-PS4&type=Date" />
+  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Stintik-123/Overdrive-PS4&type=Date" />
+</picture>
