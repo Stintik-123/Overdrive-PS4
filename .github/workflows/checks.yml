@@ -1,0 +1,74 @@
+name: checks
+
+# Toolchain-free verification, so a broken tree never waits for a PC with Open Orbis to
+# be noticed: every JavaScript file parses, every Python tool compiles, every JSON and
+# shell script is valid, and the app's plus the engine's runtime tests all pass.
+# The PS4 host itself still needs the Open Orbis toolchain (docs/PS4.md); this workflow
+# covers exactly the part that runs with none of it. The heavier desktop-host suites
+# (archives, network, video, ...) stay in the `build` workflow's npm test, by design.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  toolchain-free:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: JSON and shell scripts parse
+        run: |
+          set -e
+          for file in package.json update-feed.json docs/archive-passwords.json; do
+            jq empty "$file"
+          done
+          for script in packaging/*.sh; do
+            bash -n "$script"
+          done
+          echo "JSON and shell: OK"
+
+      - name: JavaScript parses, Python tools compile
+        run: |
+          set -e
+          find app ps5-react/tools \( -name '*.js' -o -name '*.mjs' \) -print0 |
+            xargs -0 -n1 node --check
+          python3 -m py_compile tools/*.py ps5-react/tools/*.py
+          echo "syntax: OK"
+
+      - name: Install the framework's npm packages
+        run: npm install --no-audit --no-fund
+        working-directory: ps5-react
+
+      - name: Run the app's tests
+        run: node --test app/i18n/locales.test.mjs app/game/sources.test.mjs app/state/*.test.mjs
+
+      - name: Check the catalog feed stays well-formed
+        run: |
+          set -e
+          jq -e '.body and (.assets | length > 0)' update-feed.json > /dev/null
+          echo "update-feed.json: OK"
+
+      - name: Run the engine's runtime tests
+        working-directory: ps5-react
+        run: |
+          set -e
+          python3 -c "import sys; sys.path.insert(0, 'tools'); from common import dependency; dependency('embeddedReact')"
+          npm ci --omit=optional --no-audit --no-fund --prefix .deps/embeddedReact/bridges/quickjs/js
+          PS5_REACT_ER="$PWD/.deps/embeddedReact" node --test \
+            tools/tailwind/*.test.mjs runtime/js/motion/*.test.mjs \
+            runtime/js/focus/*.test.mjs runtime/js/*.test.mjs
